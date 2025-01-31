@@ -1,0 +1,89 @@
+DaemonSet
+=========
+
+A DaemonSet in Kubernetes is a type of controller that ensures a copy of a specific pod runs on every node (or some nodes) in a cluster. This is particularly useful for applications that need to run background tasks or provide services on all nodes, such as log collectors, monitoring agents, or network proxies.
+
+Key Features of DaemonSets:
+===========================
+One Pod per Node: 
+-----------------
+DaemonSets guarantee that a single pod runs on each selected node
+
+Automatic Pod Management:
+-------------------------
+
+ When new nodes are added to the cluster, the DaemonSet automatically schedules a pod on the new node. If nodes are removed, the associated pods are also terminated.
+
+Selective Node Deployment: 
+----------------------------
+
+You can configure a DaemonSet to run on specific nodes by using node selectors, affinity rules, or taints and tolerations.
+
+
+Common Use Cases:
+==================
+Monitoring---> Deploying monitoring agents that gather metrics from each node.
+
+Logging--> Running log collectors to gather logs from all nodes.
+
+Network Services--> Setting up services like network proxies or VPNs that need to be available on every node.
+
+
+
+
+
+Example 1:
+==========
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata: 
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+        - containerPort: 80
+
+
+NOTE: It will not deployed into master node
+
+kubectl describe node <master>  --> check the taints
+
+kubectl describe node <slave>  --> check the taints
+
+
+Example 2: deploy in master node also
+===========
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata: 
+      labels:
+        app: nginx
+    spec:
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+        - containerPort: 80

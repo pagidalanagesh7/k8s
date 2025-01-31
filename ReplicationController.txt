@@ -1,0 +1,53 @@
+ReplicationController
+=====================
+--> Replication Controller is one of the key features of Kubernetes, which is responsible for managing the pod lifecycle. It is responsible for making sure that the specified number of pod replicas are running at any point of time.
+
+--> A Replication Controller is a structure that enables you to easily create multiple pods, then make sure that that number of pods always exists. If a pod does crash, the Replication Controller replaces it.
+
+
+--> Replication Controllers and PODS are associated with labels.
+
+--> Creating “RC” with count of 1 ensure that a POD is always available.
+
+
+
+Example:
+
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: javawebapprc
+  namespace: test-ns
+spec:
+  replicas: 2
+  selector:
+    app: javawebapp
+  template:
+    metadata: 
+      name: javawebapprcpod
+      labels:
+        app: javawebapp
+    spec: 
+      containers:
+      - name: javawebapprccon
+        image: kkeducationb2/java-webapp:1.1
+        ports:
+        - containerPort: 8080
+
+save: rc.yaml
+
+kubectl apply -f rc.yaml --dry-run=client
+
+kubectl apply -f rc.yaml
+
+kubectl get rc -n <NS>
+
+kubectl get all -n <NS>
+
+kubectl scale rc <rcName> --replicas 3 -n <NS>
+
+kubectl delete rc <rcName> -n <NS>
+
+
+
+  

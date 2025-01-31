@@ -1,0 +1,130 @@
+ReplicaSet
+==========
+
+--> ReplicaSet is the next-generation Replication Controller.
+
+--> The only difference between a ReplicaSet and a Replication Controller right now is the selector
+support.
+
+ReplicaSet supports the new set-based selector  requirements as described in the labels user  guide whereas a Replication Controller only  supports equality-based selector requirements.
+
+
+
+k8s RepicationController
+========================
+
+equality based selector
+-----------------------
+
+<key>: <value>
+
+app: javawebapp
+
+
+k8s ReplicaSet
+===============
+
+equality based selector
+-----------------------
+
+<key>: <value>
+
+app: javawebapp
+
+set based selectors
+--------------------
+
+key in(value1,value2)
+
+key not in(value1,value2)
+
+
+--> RC selector is an optional , in RS selector is mandatory.
+
+
+
+
+
+
+Syntax
+======
+
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+ name: <RS-Name>
+spec:
+ replicas: 3
+ selector:
+ 	MatchLabels:
+ 	  <key>: <value>
+ 	MatchExpressions:
+ 	 - key: <key>
+ 	   operators: <in / not in>
+ 	   values:
+ 	   - <value1>
+ 	   - <value2>
+ 	template:
+ 		metadata: 
+ 			name: <pod-Name>
+ 			labels:
+ 			  <key> : <value>
+ 	    spec:  
+ 	     containers:
+ 	     	- name: <containerName>
+ 	     	  image: <image-details>
+ 	     	  ports:
+ 	     	  - containerPort: <CP>
+---
+
+
+
+Example:
+========
+
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: javawebapprs
+spec:
+  replicas: 2
+  selector: 
+    matchLabels:
+      app: javawebapp
+  template:
+    metadata: 
+      name: javawebapp
+      labels:
+        app: javawebapp
+    spec:
+      containers:
+      - name: javawebapp
+        image: kkeducationb2/java-webapp:1.1
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: javawebappsvc
+spec:
+  type: NodePort
+  selector: 
+    app: javawebapp
+  ports:
+    - port: 80
+      targetPort: 8080
+      nodePort: 30080
+
+
+      
+
+
+
+
+
+
+ 
+
+
+

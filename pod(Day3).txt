@@ -1,0 +1,173 @@
+what is a pod?
+===============
+--> A pod is the smallest building block or basic unit of scheduling in Kubernetes.
+
+--> A Pod always runs on a Node.
+
+--> In a Kubernetes cluster, a pod represents a running process.
+
+--> Inside a pod, you can have one or more containers. Those containers all share a unique network IP, storage, network and any other specification applied to the pod.
+
+--> POD is a group of one or more containers which will be running on some node
+
+--> Each Pod has its unique IP Address within the cluster.
+
+
+Pod Lifecycle
+-------------
+
+--> Make a Pod reuqest to API server using a local pod defination file
+--> The API server saves the info for the pod in ETCD
+--> The scheduler finds the unscheduled pod and shedules it to node.
+--> Kubelet running on the node, sees the pod sheduled and fires up container-runtime.
+--> The entire lifecycle state of the pod is stored in ETCD.
+
+
+Pod Concepts
+-------------
+--> Pod is ephemeral(lasting for a very short time) and won’t be rescheduled to a  new node once it dies.
+--> You should not directly create/use Pod for deployment, Kubernetes have  controllers like Replica Sets, Deployment, Deamon sets to keep pod alive.
+
+--> There are two model types of pod you can create:
+
+
+One-container-per-pod. 
+----------------------
+This model is  the most popular. POD is the “wrapper”  for a single container. Since pod is the  smallest object that K8S recognizes, it  manages the pods instead of directly  managing the containers.
+
+
+Multi-container-pod or Sidecar  containers 
+------------------------------------------
+In this model, a pod can hold  multiple co-located containers primary  container And utility container that  helps or enhances how an application  functions (examples of sidecar  containers are log shippers/watchers  and monitoring agents).
+
+How to list k8s objects?
+-------------------------
+
+kubectl api-resources
+
+How to list namespace level objects?
+------------------------------------
+
+kubectl api-resources --namespaced=true
+
+How to list cluster level objects?
+----------------------------------
+
+kubectl api-resources --namespaced=false
+
+
+
+pod syntax
+===========
+
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: <pod name>
+  labels: 
+   <key>: <value>
+  namespace: <nsName>
+spec:
+   containers:
+    - name: <containeName>
+      image: <registry/repo:tag>
+      ports:
+      - containerPort: <containerPort>
+      env:
+      - name: <NAME>
+        value: <value>
+        
+save: app1.yaml
+
+apply: kubectl apply -f app1.yaml
+
+
+
+
+EXAMPLE 1:
+===========
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  namespace: test-ns
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.14.2
+    ports:
+    - containerPort: 80
+
+
+
+Example 2:
+=========
+
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: javawebappTest
+  labels:
+    app: javawebappTest
+  namespace: test-ns
+spec:
+  containers:
+  - name: javawebapp1
+    image: kkeducation123456/maven-web-app:1.2
+    ports:
+    - containerPort: 8080
+
+
+
+
+
+
+Example 3
+==========
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: mogodbpod
+  namespace: db-ns
+spec:
+  containers:
+  - name: mongodbcontainer
+    image: mongo
+    ports:
+    -  containerPort: 27017
+
+
+
+=================================================================
+
+
+kubectl describe po <podName> -n <NameSpace>
+
+
+IQ] Before starting pod , i need to do sanity how to do?
+
+Ans: kubectl apply -f abc.yaml -v=8
+
+IQ] in which worker node my pod is running how to check?
+
+Ans: kubectl get po -o wide
+
+
+IQ] what is the meaning of 1/1, 2/2, 1/2, 0/2 ?
+
+Ans:  1/1 means inside a pod we have a one container and that is running
+
+      0/1 means inside a pod we have a one container and that is not running
+
+
+
+Assignment : pls create a pods 
+==========
+
+tomcat
+
+Jenkins
+
+mongo
