@@ -1,0 +1,118 @@
+Liveness probe and Readiness probe
+==================================
+
+--> Liveness and Readiness Probes are mechanisms in Kubernetes used to check the health and status of containers within a Pod. They help ensure that applications are running as expected and can serve traffic.
+
+
+
+IP:NodePort/maven-web-application  
+
+
+Liveness Probe
+-----------------
+Suppose that a Pod is running our application inside a container, but due to some reason let’s say memory leak, cpu usage, application deadlock etc the
+application is not responding to our requests, and stuck in error state.
+
+Liveness probe checks the container health as we tell it do, and if for some reason the liveness probe fails, it restarts the container.
+
+Readiness Probe
+---------------
+This type of probe is used to detect if a container is ready to accept traffic. You can use this probe to manage which pods are used as backends for load balancing services. 
+
+If a pod is not ready,  then be removed from the list of load balancers.
+
+
+
+
+
+Example
+=======
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: javawebappdep
+  namespace: test-ns
+spec:
+  replicas: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: javawebapp
+  template:
+    metadata:
+      name: javawebapp
+      labels:
+        app: javawebapp
+    spec:
+      containers:
+      - name: javawebapp
+        image: kkeducation123456/maven-web-app:1.2
+        ports:
+        - containerPort: 8080
+        livenessProbe:
+          httpGet:
+            path: /health  # Adjust based on your application's health check endpoint [maven-web-application]
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready  # Adjust based on your application's readiness check endpoint [maven-web-application]
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          failureThreshold: 3
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: javawebappsvc
+  namespace: test-ns
+spec:
+  type: NodePort
+  selector:
+    app: javawebapp
+  ports:
+  - port: 80
+    targetPort: 8080
+    
+
+==========================
+
+
+
+
+        livenessProbe:
+          httpGet:
+            path: /health  # Adjust based on your application's health check endpoint
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready  # Adjust based on your application's readiness check endpoint
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          failureThreshold: 3
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
