@@ -1,0 +1,365 @@
+Network Policies
+================
+
+--> Network Policies in Kubernetes are used to control the communication between pods and between pods and external endpoints. 
+--> They are a way to define rules that govern how pods can connect to each other and to other network endpoints. 
+--> This can enhance the security of your applications by restricting access and ensuring that only authorized traffic is allowed.
+
+
+
+Key Concepts of Network Policies
+---------------------------------
+Namespaces: Network Policies are applied within a specific namespace. You can create different policies for different namespaces.
+
+Selectors: Network Policies use selectors to define the pods they apply to:
+
+Pod Selector: Specifies which pods the policy affects.
+Namespace Selector: Specifies which namespaces the policy can affect.
+
+
+Types of Rules:
+
+	Ingress Rules: Control incoming traffic to the selected pods.
+	Egress Rules: Control outgoing traffic from the selected pods.
+Policy Types: Each Network Policy can specify rules for ingress, egress, or both.
+
+
+
+Example without network policies
+=================================
+
+mongo db and service
+--------------------
+
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata: 
+  name: mongodb
+  namespace: test-ns
+spec:
+  replicas: 1
+  selector: 
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+      - name: mongocon
+        image: mongo
+        ports:
+        - containerPort: 27017
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          value: devdb
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          value: devdb@123
+        volumeMounts:
+        - name: mongovol
+          mountPath: /data/db
+      volumes:
+      - name: mongovol
+        hostPath:
+          path: /mongodata
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongosvc
+  namespace: test-ns
+spec:
+  type: ClusterIP
+  selector:
+    app: mongodb
+  ports:
+    - port: 27017
+      targetPort: 27017
+
+
+
+
+
+
+
+
+spring app and service
+----------------------
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sprinapp
+  namespace: test-ns
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: springapp
+  template:
+    metadata:
+      labels:
+        app: springapp
+    spec:
+      containers:
+      - name: springapp
+        image: kkeducation12345/spring-app:1.0.0
+        ports:
+        - containerPort: 8080
+        env:
+        - name: MONGO_DB_HOSTNAME
+          value: mongosvc
+        - name: MONGO_DB_USERNAME
+          value: devdb
+        - name: MONGO_DB_PASSWORD
+          value: devdb@123
+        resources:
+          requests:
+            cpu: 300m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: springappsvc
+  namespace: test-ns
+spec:
+ type: NodePort
+ selector:
+   app: springapp
+ ports:
+ - port: 80
+   targetPort: 8080
+   
+
+maven-web-app and service
+-------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: javawebappdep
+  namespace: test-ns
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: javawebapp
+  template:
+    metadata:
+      name: javawebapp
+      labels:
+        app: javawebapp
+    spec:
+      containers:
+      - name: javawebapp
+        image: kkeducation123456/maven-web-app:1.2
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: javawebappsvc
+  namespace: test-ns
+spec:
+  type: NodePort
+  selector:
+    app: javawebapp
+  ports:
+  - port: 80
+    targetPort: 8080
+
+
+========================================
+
+step 1:
+    kubectl exec -it javawebappdep-95fd6f796-bjsbs -n test-ns -- bash
+   curl -v telnet://mongosvc:27017   --> connected
+
+
+step 2:
+
+    kubectl exec -it sprinapp-6c6b6dfbbb-94qdr -n test-ns -- sh
+
+    apk add curl
+
+    curl -v telnet://mongosvc:27017
+
+step 3:
+    deploy nginx in default ns and check the connectivity
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    ports:
+    - containerPort: 80
+
+
+
+kubectl exec -it nginx -- bash
+
+curl -v telnet://mongosvc.test-ns.svc.cluster.local:27017   --> fully qualified domain name
+
+
+==================================
+
+--> Now apply the networkPolicies
+
+Example 1:
+----------
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: test-network-policy
+  namespace: test-ns
+spec:
+  podSelector:
+    matchLabels:
+      app: springapp
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - ipBlock:
+        cidr: 172.17.0.0/16
+        except:
+        - 172.17.1.0/24
+    - namespaceSelector:
+        matchLabels:
+          project: myproject
+    - podSelector:
+        matchLabels:
+          role: frontend
+    ports:
+    - protocol: TCP
+      port: 6379
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 10.0.0.0/24
+    ports:
+    - protocol: TCP
+      port: 5978
+
+
+Example 2: for our application
+----------
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: test-network-policy
+  namespace: test-ns
+spec:
+  podSelector:
+    matchLabels:
+      app: mongodb
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: springapp
+    ports:
+    - protocol: TCP
+      port: 27017
+
+kubectl apply -f networkpol.yaml
+kubectl get netpol
+kubectl get netpol  -n test-ns
+
+
+trouble shooting
+----------------
+
+ kubectl exec -it sprinapp-6c6b6dfbbb-94qdr -n test-ns -- sh
+
+ curl -v telnet://mongosvc:27017   --> connection is there
+
+
+  kubectl exec -it javawebappdep-95fd6f796-bjsbs -n test-ns -- bash
+
+  curl -v telnet://mongosvc:27017 ---> no connection
+
+
+NOTE: please add one more app pod label and check
+
+     app=javawebapp
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: test-network-policy
+  namespace: test-ns
+spec:
+  podSelector:
+    matchLabels:
+      app: mongodb
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: springapp
+    - podSelector:
+        matchLabels:
+          app: javawebapp
+    ports:
+    - protocol: TCP
+      port: 27017
+
+kubectl apply -f networkpol.yaml
+kubectl get netpol
+kubectl get netpol  -n test-ns
+
+
+NOTE: add nameSpace slector and check the connection
+
+
+   - namespaceSelector:
+	matchLabels:
+	 ns=test-ns
+
+
+
+
+
+
+
+
+
+   
+
+    
+
+
+
+
+
+
+          
+
+
+
+
+
+
+
+
+
+
+
+
