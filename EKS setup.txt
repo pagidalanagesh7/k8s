@@ -1,0 +1,627 @@
+EKS cluster-setup
+=================
+
+Different ways to setup EKS cluster.
+
+-> AWS Management Console[cloud formation]
+
+-> Infra Structure As A code(Terraform).
+-> eksctl utility provided by AWS.
+
+
+
+
+Step By Step Procedure Using AWS Console
+==========================================
+1. Create Dedicated VPC For EKS Cluster. When you create a cluster, the VPC that you specify must meet the following requirements and
+considerations:
+
+
+• The VPC must have a sufficient number of IP addresses available for the cluster, any nodes, and other Kubernetes resources that you want to create
+
+• The VPC must have DNS hostname and DNS resolution support. Otherwise, nodes can't register to your cluster.
+
+• This VPC has two public and two private subnets. A public subnet's associated route table has a route to an internet gateway. However, the route table of a private
+subnet doesn’t have a route to an internet gateway. One public and one private subnet are deployed to the same Availability Zone. The other public and private
+subnets are deployed to a second Availability Zone in the same AWS Region. We recommend this option for most deployments.
+
+• With this option, you can deploy your nodes to private subnets. This option allows Kubernetes to deploy load balancers to the public subnets that can load balance
+traffic to pods that run on nodes in the private subnets. Public IPv4 addresses are automatically assigned to nodes that are deployed to public subnets, but
+public IPv4 addresses aren't assigned to nodes deployed to private subnets.
+
+
+https://s3.us-west-2.amazonaws.com/amazon-eks/cloudformation/2020-10-29/amazon-eks-vpc-private-subnets.yaml
+
+1. Create IAM Role For EKS Cluster.
+
+     EKS – Cluster
+2. Create EKS Cluster.
+3. Create IAM Role For EKS Worker Nodes.
+
+• AmazonEKSWorkerNodePolicy
+• AmazonEKS_CNI_Policy
+• AmazonEC2ContainerRegistryReadOnly
+• AmazonEBSCSIDriverPolicy
+
+4. Create Worker Nodes.
+
+6. Create An Instance (If Not Exists) Install AWS CLI , IAM Authenticator And kubectl. Configure AWS CLI using Root or IAM User
+Access Key & Secret Key. Or Attach IAM With Required Policies. And get kubeconfig file.
+
+aws eks update-kubeconfig --name <ClusterName> --region <RegionName>
+
+7. Deploy AWSEBSSCSI Driver Plugin.
+
+kubectl apply -k “github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-1.12”
+
+8. Deploy Sample Application.
+
+
+
+==============================================
+
+step 1: 
+--------
+
+create a vpc and required components with cloud formation template for eks.
+
+search "cloud formation" template --> create stack --> with new resources --> amazon s3 url --> 
+
+https://s3.us-west-2.amazonaws.com/amazon-eks/cloudformation/2020-10-29/amazon-eks-vpc-private-subnets.yaml
+
+
+Next --> stack name(EKS-class) --> next --> next --> submit --> It will take some time please wait, vpc and required componets will be created.
+
+
+
+step 2: create a IAM role for EKS cluster
+-------
+
+search IAM--> select roles --> create a role --> use cases for other aws services-->
+
+EKS-Cluster --> next--> next --> role name(EKS-role) --> create role
+
+
+step 3: create a eks cluster
+-------
+
+search eks --> add cluster --> create --> name(EKS-class) --> k8s latest version--> select IAM role --> Next
+
+select vpc --> select all subnets --> select all security groups --> cluster end point access(public and private) --> next--> configure logging --> next --> select add ons --> next --> create.
+
+NOTE : It will take time, just control plane is created
+
+
+step 4: create a node groups, before that create node IAM role for this.
+-------
+Create IAM Role For EKS Worker Nodes.
+
+• AmazonEKSWorkerNodePolicy
+• AmazonEKS_CNI_Policy
+• AmazonEC2ContainerRegistryReadOnly
+• AmazonEBSCSIDriverPolicy
+
+search IAM --> roles --> create role --> select service as ec2 --> next --> attach above policies --> next--> name(eks-worker-role) --> create
+
+
+
+search EKS --> select correct one --> compute --> select node groups --> Name(eks-nodes)--> select iam role --> if required give the labels--> next
+
+select ami type(Amazon Linux 2(Al2_x86_64)--> instance type (t2.large) --> node group scaling config( max: 5 nodes) --> next
+
+specify networking--> select only priate subnets--> select configure remote access to nodes--> select the keypair--> allow remote access from (select all) --> next  --> create.
+
+
+NOTE: In back ground auto scalling group will create.
+
+
+
+step 5: How to communicate with eks cluster?
+-------
+
+Ans: through api server, we need to .kube/config details, we need to install kubectl in your machine.
+
+--> take one server to install kubectl
+
+     kubectl version --client
+
+link:  https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/
+
+
+
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+
+
+
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+
+
+kubectl version --client
+
+
+
+link: https://docs.aws.amazon.com/eks/latest/userguide/create-kubeconfig.html
+
+aws eks update-kubeconfig --region region-code --name my-cluster
+
+ex: aws eks update-kubeconfig --region ap-south-1 --name EKS-class
+
+NOTE: you will get an error, you need to install aws cli
+
+
+install aws cli
+-----------------
+
+link: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+
+
+
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+sudo yum install unzip -y
+
+unzip awscliv2.zip
+sudo ./aws/install
+
+
+aws --version
+
+aws eks list-clusters
+aws eks update-kubeconfig --name EKS-class --region ap-south-1
+
+NOTE : but above commands not working, need to configure aws
+
+--> get the access key and secret key --> goto account --> security and credentials --> create access key --> download it for reference
+
+aws configure
+
+access key: 
+secret key: 
+region: ap-south-1
+format: table
+
+aws sts get-caller-identity
+
+aws eks list-clusters
+aws eks update-kubeconfig --name EKS-class --region ap-south-1
+
+cat /home/ec2-user/.kube/config
+
+kubectl get nodes
+
+kubectl get ns
+
+kubectl get sc --> one default SC wil be created
+
+deploy csi driver
+-----------------
+
+link: https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/master/docs/install.md
+
+kubectl apply -k "github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-1.35"
+
+
+
+etc commands
+
+
+================================================================
+
+
+maven-web-app and service
+-------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mavenwebappdep
+  namespace: test-ns
+spec:
+  replicas: 2
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: mavenwebapp
+  template:
+    metadata:
+      name: mavenwebapp
+      labels:
+        app: mavenwebapp
+    spec:
+      containers:
+      - name: mavenwebapp
+        image: kkeducation123456/maven-web-app:1.2
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mavenwebapp-svc
+  namespace: test-ns
+spec:
+  type: LoadBalancer
+  selector:
+    app: mavenwebapp
+  ports:
+    - protocol: TCP
+      port: 80      
+      targetPort: 8080  
+
+
+--> apply and see the load balancer.
+
+
+General question: what is the capacity of my k8s cluster?
+
+
+-------------------------
+
+request and limits
+------------------
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mavenwebappdep
+  namespace: test-ns
+spec:
+  replicas: 3
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: mavenwebapp
+  template:
+    metadata:
+      name: mavenwebapp
+      labels:
+        app: mavenwebapp
+    spec:
+      containers:
+      - name: mavenwebapp
+        image: kkeducation123456/maven-web-app:1.2
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: "512Mi"  # Minimum memory required
+            cpu: "1"      # Minimum CPU required
+          limits:
+            memory: "1Gi"    # Maximum memory allowed
+            cpu: "1"      # Maximum CPU allowed
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mavenwebapp-svc
+  namespace: test-ns
+spec:
+  type: LoadBalancer
+  selector:
+    app: mavenwebapp
+  ports:
+    - protocol: TCP
+      port: 80      
+      targetPort: 8080 
+
+NOTE: increase the resources and see, no new nodes are coming eventhough we defined min and max
+
+EKS Cluster Auto scaler
+======================
+
+The Cluster Autoscaler in Amazon EKS (Elastic Kubernetes Service) automatically adjusts the size of your EKS cluster based on the demands of your workloads. It helps manage the scaling of worker nodes in your cluster, adding nodes when there are pending pods that cannot be scheduled due to insufficient resources and removing nodes when they are underutilized.
+
+
+How to set-up
+-------------
+
+step 1:
+
+link: https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/README.md
+
+--> create IAM policy with below rules
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "autoscaling:DescribeAutoScalingGroups",
+        "autoscaling:DescribeAutoScalingInstances",
+        "autoscaling:DescribeLaunchConfigurations",
+        "autoscaling:DescribeScalingActivities",
+        "ec2:DescribeImages",
+        "ec2:DescribeInstanceTypes",
+        "ec2:DescribeLaunchTemplateVersions",
+        "ec2:GetInstanceTypesFromInstanceRequirements",
+        "eks:DescribeNodegroup"
+      ],
+      "Resource": ["*"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "autoscaling:SetDesiredCapacity",
+        "autoscaling:TerminateInstanceInAutoScalingGroup"
+      ],
+      "Resource": ["*"]
+    }
+  ]
+}
+
+
+goto aws --> search iam --> policies --> create policy --> select json --> paste the above rules--> next --> 
+
+policy name(ClusterAutoScalarPolicy)--> create
+
+
+
+step 2:
+-------
+
+attach the policy to eks cluster IAM role.
+
+
+select the EKS IAM role --> permissions --> add permissions --> Attach policies --> select ClusterAutoScalerpolicy--> add permissions 
+
+
+
+step 3: Install the clusterAutoAscaller
+-------
+
+link: https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/README.md
+
+
+kubectl apply -f examples/cluster-autoscaler-autodiscover.yaml
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    k8s-addon: cluster-autoscaler.addons.k8s.io
+    k8s-app: cluster-autoscaler
+  name: cluster-autoscaler
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cluster-autoscaler
+  labels:
+    k8s-addon: cluster-autoscaler.addons.k8s.io
+    k8s-app: cluster-autoscaler
+rules:
+  - apiGroups: [""]
+    resources: ["events", "endpoints"]
+    verbs: ["create", "patch"]
+  - apiGroups: [""]
+    resources: ["pods/eviction"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["pods/status"]
+    verbs: ["update"]
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    resourceNames: ["cluster-autoscaler"]
+    verbs: ["get", "update"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["watch", "list", "get", "update"]
+  - apiGroups: [""]
+    resources:
+      - "namespaces"
+      - "pods"
+      - "services"
+      - "replicationcontrollers"
+      - "persistentvolumeclaims"
+      - "persistentvolumes"
+    verbs: ["watch", "list", "get"]
+  - apiGroups: ["extensions"]
+    resources: ["replicasets", "daemonsets"]
+    verbs: ["watch", "list", "get"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["watch", "list"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets", "replicasets", "daemonsets"]
+    verbs: ["watch", "list", "get"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses", "csinodes", "csidrivers", "csistoragecapacities"]
+    verbs: ["watch", "list", "get"]
+  - apiGroups: ["batch", "extensions"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "patch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["create"]
+  - apiGroups: ["coordination.k8s.io"]
+    resourceNames: ["cluster-autoscaler"]
+    resources: ["leases"]
+    verbs: ["get", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cluster-autoscaler
+  namespace: kube-system
+  labels:
+    k8s-addon: cluster-autoscaler.addons.k8s.io
+    k8s-app: cluster-autoscaler
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["cluster-autoscaler-status", "cluster-autoscaler-priority-expander"]
+    verbs: ["delete", "get", "update", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-autoscaler
+  labels:
+    k8s-addon: cluster-autoscaler.addons.k8s.io
+    k8s-app: cluster-autoscaler
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-autoscaler
+subjects:
+  - kind: ServiceAccount
+    name: cluster-autoscaler
+    namespace: kube-system
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cluster-autoscaler
+  namespace: kube-system
+  labels:
+    k8s-addon: cluster-autoscaler.addons.k8s.io
+    k8s-app: cluster-autoscaler
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cluster-autoscaler
+subjects:
+  - kind: ServiceAccount
+    name: cluster-autoscaler
+    namespace: kube-system
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-autoscaler
+  namespace: kube-system
+  labels:
+    app: cluster-autoscaler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cluster-autoscaler
+  template:
+    metadata:
+      labels:
+        app: cluster-autoscaler
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '8085'
+    spec:
+      priorityClassName: system-cluster-critical
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: cluster-autoscaler
+      containers:
+        - image: registry.k8s.io/autoscaling/cluster-autoscaler:v1.26.2
+          name: cluster-autoscaler
+          resources:
+            limits:
+              cpu: 100m
+              memory: 600Mi
+            requests:
+              cpu: 100m
+              memory: 600Mi
+          command:
+            - ./cluster-autoscaler
+            - --v=4
+            - --stderrthreshold=info
+            - --cloud-provider=aws
+            - --skip-nodes-with-local-storage=false
+            - --expander=least-waste
+            - --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/EKS-Testing
+          volumeMounts:
+            - name: ssl-certs
+              mountPath: /etc/ssl/certs/ca-certificates.crt # /etc/ssl/certs/ca-bundle.crt for Amazon Linux Worker Nodes
+              readOnly: true
+          imagePullPolicy: "Always"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+      volumes:
+        - name: ssl-certs
+          hostPath:
+            path: "/etc/ssl/certs/ca-bundle.crt"
+
+NOTE: pls change the cluster name and apply.
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
