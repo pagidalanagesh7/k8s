@@ -1,3 +1,17 @@
+Through CLI pls follow this blog https://medium.com/@subhasmitadas696/kubernetes-cluster-setup-on-amazon-eks-11506e462929
+
+
+
+
+
+
+
+
+
+
+
+
+
 EKS cluster-setup
 =================
 
