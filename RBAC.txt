@@ -1,0 +1,230 @@
+
+
+
+RBAC
+====
+
+
+RBAC (Role-Based Access Control) in Kubernetes is a powerful method for regulating access to the Kubernetes API based on the roles of individual users or groups. Here's a breakdown of its key components and how it works:
+
+Key Components
+
+Role: Defines a set of permissions within a specific namespace. It grants access to resources like pods, deployments, etc.
+
+ClusterRole: Similar to a Role but applies across the entire cluster. It can be used for non-namespaced resources or for cluster-wide permissions.
+
+RoleBinding: Grants the permissions defined in a Role to a user or a group within a specific namespace.
+
+ClusterRoleBinding: Grants the permissions defined in a ClusterRole to a user or a group across the entire cluster.
+
+
+Practical
+=========
+
+step 1: install kubectl in your system(windows)
+------
+
+link: https://kubernetes.io/docs/tasks/tools/install-kubectl-windows/
+
+curl.exe -LO "https://dl.k8s.io/release/v1.31.0/bin/windows/amd64/kubectl.exe"
+
+      or
+
+curl.exe -LO "https://dl.k8s.io/release/v1.32.0/bin/windows/amd64/kubectl.exe"
+
+
+
+
+
+add the environment details.
+
+C:\Users\gpras\OneDrive\Desktop\rbac-practise  --> add env path
+
+step 2: Install aws cli
+-------
+
+link: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+
+Download and run the AWS CLI MSI installer for Windows (64-bit):
+
+https://awscli.amazonaws.com/AWSCLIV2.msi
+
+
+
+step 3: create IAM user and create a access and seceret key for that user
+------
+
+
+https://640168417733.signin.aws.amazon.com/console
+
+kkfunda
+
+Vision@2030
+
+
+AK: 
+
+SK: 
+
+
+
+
+
+
+
+step 4: we need aws permissions
+-------
+
+aws configure
+
+access key: AKIAZKDIC3HC5SOKTXVB
+secret key: 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
+region: ap-south-1
+format: table
+
+aws sts get-caller-identity
+
+aws eks list-clusters
+aws eks update-kubeconfig --name EKS-Demo123 --region ap-southeast-1
+
+
+step 5: create eks read-only policy and attach to the user
+-------
+
+aws sts get-caller-identity
+
+aws eks list-clusters
+aws eks update-kubeconfig --name EKS-Demo123 --region ap-southeast-1
+
+cat /c/Users/gpras/.kube/config
+
+But we are not able to list kubectl get po, etc
+
+
+
+step 6: connect to linux machine where we have k8s admin cli access.
+-------
+
+kubectl get cm -n kube-system
+
+cm: aws-auth
+
+NOTE: add users
+
+kubectl edit cm aws-auth -n kube-system
+
+
+apiVersion: v1
+data:
+  mapRoles: |
+    - groups:
+      - system:bootstrappers
+      - system:nodes
+      rolearn: arn:aws:iam::418295704475:role/EKS-worker-role-class
+      username: system:node:{{EC2PrivateDNSName}}
+  mapUsers: |
+    - userarn: arn:aws:iam::418295704475:user/prasanth
+      username: prasanth
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2024-10-11T07:12:50Z"
+  name: aws-auth
+  namespace: kube-system
+  resourceVersion: "52395"
+  uid: fe764e06-c2ec-4f84-bc3b-5732c1ebfaeb
+
+
+
+kubectl get pods --> we dont have permission
+
+
+srihari --> RBAC
+
+sai --> admin
+
+
+=================================
+
+--> Now create Role and RoleBinding
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: test-ns
+  name: pod-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "watch", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: read-pods
+  namespace: test-ns
+subjects:
+- kind: User
+  name: kkfunda
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+
+
+
+
+=========
+
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fullaccesscr
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fullaccess
+subjects:
+- kind: User
+  name: kkfunda
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: fullaccesscr
+  apiGroup: rbac.authorization.k8s.io
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
