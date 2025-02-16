@@ -1,0 +1,213 @@
+Prometheus and Grafana
+======================
+
+installation:
+==============
+
+step 1:
+-------
+
+prometheus-community/prometheus
+
+
+
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+helm search repo prometheus-community  --> to list the all charts
+
+helm template prometheus-community/prometheus  --> It will what k8s objects will deploy through chart
+
+
+
+
+
+kubectl create ns monitoring
+
+helm upgrade --install prometheus prometheus-community/prometheus -n monitoring
+
+
+node_memory_MemTotal_bytes
+node_memory_MemAvailable_bytes
+
+(sum(node_memory_MemAvailable_bytes) by (instance) / sum(node_memory_MemTotal_bytes) by (instance)) * 100 < 90  --> <90% create an alert
+
+
+
+
+
+
+
+
+values.yaml
+------------
+
+
+alertmanager:
+  config:
+    global:
+      resolve_timeout: 1m
+      # slack_api_url: ''
+
+    receivers:
+      - name: 'gmail-notifications'
+        email_configs:
+        - to: g.prasanth532@gmail.com
+          from: kkeducationblr@gmail.com # Update your from mail id here
+          smarthost: smtp.gmail.com:587
+          auth_username: kkeducationblr@gmail.com # Update your from mail id here
+          auth_identity: kkeducationblr@gmail.com # Update your from mail id here
+          auth_password: sgbkholrxxnzidek  # app password here
+          send_resolved: true
+          headers:
+            subject: " Prometheus -  Alert  "
+          text: "{{ range .Alerts }} Hi, \n{{ .Annotations.summary }}  \n {{ .Annotations.description }} {{end}} "
+        # slack_configs:
+        #  - channel: '@you'
+        #    send_resolved: true
+
+    route:
+      group_wait: 10s
+      group_interval: 2m
+      receiver: 'gmail-notifications'
+      repeat_interval: 2m
+serverFiles:
+  alerting_rules.yml:
+      groups:
+      - name: NodeDown
+        rules:
+        # Alert for any instance that is unreachable for >5 minutes.
+        - alert: InstanceDown
+          expr: up{job="kubernetes-nodes"} == 0
+          for: 2m
+          labels:
+            severity: page
+          annotations:
+            host: "{{ $labels.kubernetes_io_hostname }}"
+            summary: "Instance down"
+            description: "Node {{ $labels.kubernetes_io_hostname  }}has been down for more than 5 minutes."
+      - name: low_memory_alert
+        rules:
+        - alert: LowMemory
+          expr: (node_memory_MemAvailable_bytes /  node_memory_MemTotal_bytes) * 100 < 15
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            host: "{{ $labels.kubernetes_node  }}"
+            summary: "{{ $labels.kubernetes_node }} Host is low on memory.  Only {{ $value }}% left"
+            description: "{{ $labels.kubernetes_node }}  node is low on memory.  Only {{ $value }}% left"
+        - alert: KubePersistentVolumeErrors
+          expr: kube_persistentvolume_status_phase{job="kubernetes-service-endpoints",phase=~"Failed|Pending"} > 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            description: The persistent volume {{ $labels.persistentvolume }} has status {{ $labels.phase }}.
+            summary: PersistentVolume is having issues with provisioning.
+        - alert: KubePodCrashLooping
+          expr: rate(kube_pod_container_status_restarts_total{job="kubernetes-service-endpoints",namespace=~".*"}[5m]) * 60 * 5 > 0
+          for: 2m
+          labels:
+            severity: danger
+          annotations:
+            description: Pod {{ $labels.namespace }}/{{ $labels.pod }} ({{ $labels.container }}) is restarting {{ printf "%.2f" $value }} times / 5 minutes.
+            summary: Pod is crash looping.
+        - alert: KubePodNotReady
+          expr: sum by(namespace, pod) (max by(namespace, pod) (kube_pod_status_phase{job="kubernetes-service-endpoints",namespace=~".*",phase=~"Pending|Unknown"}) * on(namespace, pod)    group_left(owner_kind) topk by(namespace, pod) (1, max by(namespace, pod, owner_kind) (kube_pod_owner{owner_kind!="Job"}))) > 0
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            description: Pod {{ $labels.namespace }}/{{ $labels.pod }} has been in a non-ready state for longer than 5 minutes.
+            summary: Pod has been in a non-ready state for more than 2 minutes.
+
+
+
+
+helm upgrade --install grafana grafana/grafana -n monitoring -f values.yaml
+
+
+NOTE: enable the 2 step verification of from mail id, and generate the app password
+
+
+
+
+
+
+
+
+grafana
+========
+
+helm repo add grafana https://grafana.github.io/helm-charts
+
+ helm search repo grafana
+
+
+helm upgrade --install grafana grafana/grafana -n monitoring
+
+uname: admin
+
+pwd: kubectl get secret --namespace monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+
+
+
+
+8)	import some sample dashboards from community find few ids below.
+
+Sample Dash Board IDS: 3119,7249 8919,6417 ,11074, 1860, 13332
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
