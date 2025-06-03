@@ -101,7 +101,11 @@ fi
 
 # Configure kubectl for the current user
 echo "Configuring kubectl for the current user..."
-su -c "mkdir -p \$HOME/.kube && sudo cp -i /etc/kubernetes/admin.conf \$HOME/.kube/config && sudo chown \$(id -u):\$(id -g) \$HOME/.kube/config" $(logname)
+USER_NAME=$(logname)
+USER_HOME=$(getent passwd "$USER_NAME" | cut -d: -f6)
+mkdir -p "$USER_HOME/.kube"
+cp -i /etc/kubernetes/admin.conf "$USER_HOME/.kube/config"
+chown "$USER_NAME:$USER_NAME" "$USER_HOME/.kube/config"
 
 # Verify kubectl setup
 echo "Verifying kubectl setup..."
