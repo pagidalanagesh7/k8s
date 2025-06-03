@@ -3,7 +3,7 @@
 # Switch to root user
 if [ "$EUID" -ne 0 ]; then
   echo "Please run as root."
-  exit
+  exit 1
 fi
 
 # Disable swap
@@ -80,5 +80,5 @@ echo "Setup complete. Kubernetes components are installed."
 ## Run the below command on control-plane to create the node's join token
 # kubeadm token create --print-join-command
 
-## Run the generated token on the worker node to join with the master node in the kubenretes cluster
+## Run the generated token on the worker node to join with the master node in the Kubernetes cluster
 # Ex: kubeadm join 172.31.16.48:6443 --token pslh6t.w5rlc87eq00b1shl --discovery-token-ca-cert-hash sha256:2dcfa43f0a6f77eea1b8bf3098b06f68505f245086caedbc17d705d696b47763
