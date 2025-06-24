@@ -1,0 +1,71 @@
+Data Persistence in Kubernetes
+==============================
+
+This document explains how Kubernetes can "remember" data over long periods. Kubernetes uses persistent storage to maintain data even if Pods are recreated.
+
+1. **Persistent Volumes (PV)**: Abstraction over physical storage. A cluster administrator creates PVs.
+2. **Persistent Volume Claims (PVC)**: Requests for storage by a Pod or Deployment. When a PVC matches a PV, the storage is bound to the claim.
+3. **Storage Classes**: Define how to dynamically provision PVs. Useful in cloud or on-prem environments where you want on-demand storage.
+4. **Stateful Sets**: Controller that manages stateful applications. Each pod gets its own persistent volume claim, allowing data to remain available even after restarts.
+
+Example: Using a Persistent Volume and Persistent Volume Claim
+--------------------------------------------------------------
+
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: example-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /data/example
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: example-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: example
+  template:
+    metadata:
+      labels:
+        app: example
+    spec:
+      containers:
+      - name: app
+        image: nginx
+        volumeMounts:
+        - name: storage
+          mountPath: /usr/share/nginx/html
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: example-pvc
+```
+
+This deployment mounts the storage from `example-pvc`. Even if the Pod restarts, the data in `/usr/share/nginx/html` remains because it lives on the persistent volume.
+
+Use Cases
+---------
+- Databases like MongoDB or MySQL where data must survive Pod recreation.
+- Application logs or uploads that should persist beyond a single Pod lifecycle.
+- Any other stateful workload that requires durable storage.
+
